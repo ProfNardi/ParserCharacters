@@ -1,79 +1,133 @@
 **Languages:** [English](README.md) | [Italiano](README.it.md)
-# parserCharacters
+# parserCharacters.ts
 **Conservative structural parser for character lists**
 
-## Problem description
-Given an informal textual grammar adopted by the
+## Problem Description
+Given the informal textual grammar adopted by the
 [Grand Comics Database (GCD)](https://docs.comics.org/wiki/Main_Page)
-to describe
-[Character Appearances](https://docs.comics.org/wiki/Character_Appearances)
-within stories, the goal is to design a parser that converts a linear representation
-(a text string) into an **AST** data structure (Abstract Syntax Tree), preserving the
-highest possible structural fidelity and without introducing semantic interpretations
-or automatic corrections.
+to describe the [Character Appearances](https://docs.comics.org/wiki/Character_Appearances),
+the goal is to convert a linear textual representation (string) into an AST (Abstract Syntax Tree):
 
-Real-world input example (from [GCD](https://docs.comics.org/wiki/Character_Appearances)):
+## Proposed Solution
+The solution relies on a TypeScript-specific format for defining the AST (Abstract Syntax Tree) along with diagnostics, without using external libraries.
+This choice keeps full control over the parser’s conservative behavior and boundary case handling. For the same reason, regular expressions (REGEX) are avoided to prevent interpretative ambiguities and to guarantee deterministic structural analysis.
 
-```txt
-Green Lantern [John Stewart];
-Justice League [Superman [Clark Kent; Kal-El]; Batman [Bruce Wayne]];
-Jimmy Olsen (origin, death);
-```
+- ✅ deterministic and conservative parser  
+- ✅ each `CharacterNode` exists only once  
+- ✅ preserves structural order  
+- ✅ produces a canonical textual representation  
+- ✅ reports syntactic errors and ambiguities  
+- ✅ normalization allowed: trimming and multiple spaces  
+- ❌ no input correction  
+- ❌ no placeholder insertion  
+- ❌ no semantic interpretation  
+- ❌ no normalization of names or contents (except space trimming)  
+- ❌ no insertion of markers or placeholders  
 
-## Supported syntax
-The syntax supported by the parser includes the following elements:
-- `;` as a **separator** of elements at the list level (flat)
-- `[...]` for **aliases** or **groups of members**
-- `(...)` for **generic information** (non-nestable)
-- nesting is allowed **only** for `[...]` in case of groups
-  (as in the *Justice League* example)
-- possible ambiguity between alias and group of members, for example:
-  - `Personaggio [Alias1; Alias2; ...]` → alias
-  - `Gruppo [Membro1; Membro2; ...]` → gruppo di membri
-
-
-## Parser requirements
-
-### What the parser does
-- ✅ converts the string into a minimal and deterministic AST
-- ✅ preserves structural order
-- ✅ produces a **canonical** textual representation
-- ✅ reports syntactic errors and ambiguities through structured `IssueCode`
-
-### What the parser does not do
-- ❌ correct the input
-- ❌ interpret semantically
-- ❌ normalize names or contents (except trimming spaces)
-- ❌ insert markers or placeholders
-
-
-# Proposed solution
-The solution is based on a TypeScript format dedicated to the definition
-of the AST and `IssueCode`, accompanied by a parser implemented
-intentionally *from scratch*, without the use of external libraries.
-This choice allows full control over the conservative behavior of the parser
-and the handling of edge cases. For the same reason, regular expressions (REGEX)
-are not used, avoiding interpretative ambiguities and ensuring deterministic
-structural analysis.
-
-
-## Main API features (parserCharacters.ts)
+## Main API Features (parserCharacters.ts)
 The module exposes two main functions:
 
 ```ts
-export function parseDataset(input: string): Dataset
-export function stringifyDataset(dataset: Dataset): string
+export function parseDataset(input: string): AST
+export function stringifyDataset(dataset: AST): string
 ```
 
-* `parseDataset` converts a linear representation into a data structure (Dataset)
-containing the AST and any diagnostics.
-* `stringifyDataset` produces a canonical textual representation from a Dataset.
+* `parseDataset` converts a linear representation into a data structure (AST) with diagnostics.  
+* `stringifyDataset` produces a canonical textual representation starting from the AST.
 
-### Round-trip idempotence test
-The parser is validated through an idempotence test of the cycle
-String → AST → String, verifying that the canonical representation
-is stable (once reached, further conversions do not produce
-changes):
+
+## Real Input Example
+(from [GCD](https://docs.comics.org/wiki/Character_Appearances)):
+
+```txt
+Jimmy Olsen (origin, death);  // Info ()
+Superman [Clark Kent; Kal-El];  // Alias []
+Justice League [Wonder Woman; Batman [Bruce Wayne]]; // Groups `[...[]...]`
+```
+
+The syntax has intrinsic ambiguities, for example:
+```txt
+Character [alias1; alias2];   // Alias []
+GroupName [Member1; Member2];  // Group `[...[]...]`
+```
+
+## Main AST Typings
+```ts
+export type CharacterNode = { name: string; fragments: Fragment[] };
+
+export type Fragment =
+  | { type: "group"; raw: string; members: CharacterNode[] }
+  | { type: "alias"; raw: string }
+  | { type: "info"; raw: string };
+
+export type ParseIssue =
+  | { code: "MISSING_NAME"; raw: string }
+  | { code: "INVALID_MEMBER_ALIAS_ONLY"; raw: string }
+  | { code: "INVALID_FRAGMENT_ORDER"; raw: string }
+  | { code: "UNMATCHED_ROUND"; raw: string }
+  | { code: "NESTED_ROUND_NOT_ALLOWED"; raw: string }
+  | { code: "UNMATCHED_SQUARE"; raw: string }
+  | { code: "AMBIGUOUS_SQUARE_LIST"; raw: string }
+  | { code: "EXTRA_CLOSING_ROUND"; raw: string }
+  | { code: "EXTRA_CLOSING_SQUARE"; raw: string };
+
+export type AST = { entries: CharacterNode[]; issuesDetailed: ParseIssue[] };
+```
+
+## Canonical Stress Test (full coverage)
+```txt
+Alpha (a,b) (c);
+Alpha;
+Alpha (a);
+Beta [X];
+Beta [Y] (i1,i2);
+Beta [X] (i3);
+Gamma [A;B];
+Gamma [A; B];
+Gamma [A; B; C];
+Gamma [A [AA]; B];
+Gamma [A; B [BB]];
+Delta [One Two];
+Delta [One; Two];
+Delta [One; Two] (info);
+Epsilon [Solo];
+Epsilon (info) [Solo];
+Epsilon [Solo] (info1, info2);
+Zeta (a(b));
+Zeta (a,b;
+Eta [Unclosed;
+Theta (Unclosed;
+Iota [A] [B];
+Iota [A] (x) [B] (y);
+Kappa [M [N [O]]];
+Kappa [M; N [O; P]];
+Lambda;
+Lambda (x);
+Lambda (y);
+Mu [X; Y] [Z];
+Mu [X] [Y; Z];
+Nu [A [B; C]; D];
+Xi;
+Omicron (o1,o2) (o3);
+Pi [P1 [P2] (pinfo)];
+Rho [R1; R2] (rinfo1, rinfo2);
+Sigma [One Two; Three];
+Tau [One; Two Three];
+Upsilon [A; B] (u1) (u2,u3);
+Phi [A; B];
+Chi [A [AA] (i1); B];
+Psi [A; B] (i);
+Omega
+```
+## Entry Separation
+The grammar requires entries to be separated by `;` with the following rules:
+* `;` separates only at the top level
+* `;` is ignored inside `(...)` and `[...]`
+* each entry produces a root `CharacterNode`
+* each `CharacterNode` is of three types: Alias `[]`, Info `()`, Groups `[...[]...]`
+
+## Round-trip Idempotence Test
+The parser is validated through an idempotence test of the String → AST → String cycle, ensuring the canonical representation is stable (once reached, further conversions cause no changes):
 
 ```ts
 // indempotenceTest.js
@@ -86,36 +140,3 @@ function assertIdempotent(input) {
   console.assert(canon === output, "Idempotence violation", { input, canon, output });
 }
 ```
-
-## Main AST typings
-```ts
-export type Fragment =
-  | { kind: "group"; raw: string; members: Character[] } // square brackets parsed as a group (member list)
-  | { kind: "alias"; raw: string } // square brackets parsed as raw alias text
-  | { kind: "info"; raw: string }; // round brackets parsed as generic info (non-nestable by policy)
-
-export type Character =
-  | { kind: "node"; name: string; fragments: Fragment[] }
-  | { kind: "raw"; raw: string };
-
-export type CharacterNode = Extract<Character, { kind: "node" }>;
-
-export type ParseIssue =
-  | { code: "MISSING_NAME"; raw: string; path?: string; message?: string }
-  | { code: "INVALID_MEMBER_ALIAS_ONLY"; raw: string; path?: string; message?: string }
-  | { code: "INVALID_FRAGMENT_ORDER"; raw: string; path?: string; message?: string }
-  | { code: "UNMATCHED_ROUND"; raw: string; path?: string; message?: string }
-  | { code: "NESTED_ROUND_NOT_ALLOWED"; raw: string; path?: string; message?: string }
-  | { code: "UNMATCHED_SQUARE"; raw: string; path?: string; message?: string }
-  | { code: "AMBIGUOUS_SQUARE_LIST"; raw: string; path?: string; message?: string }
-  | { code: "EXTRA_CLOSING_ROUND"; raw: string; path?: string; message?: string }
-  | { code: "EXTRA_CLOSING_SQUARE"; raw: string; path?: string; message?: string };
-
-export type IssueCode = ParseIssue["code"];
-
-export type Dataset = {
-  entries: CharacterNode[];
-  issuesDetailed: ParseIssue[];
-};
-
-``` 
