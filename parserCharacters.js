@@ -179,7 +179,7 @@ export function stringifyDataset(dataset) {
     const f = (x) => x.type === "info" ? `(${n(x.raw)})` : n(x.raw);
     const node = (c) => n([c.name, ...c.fragments.map(f)].join(" "));
     const mem = new Set();
-    const walk = (c) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(n(m.name)), walk(m))));
+    const walk = (c) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(m.name), walk(m))));
     dataset.entries.forEach(walk);
-    return n(dataset.entries.filter(e => !mem.has(n(e.name))).map(node).join("; "));
+    return dataset.entries.filter(e => !mem.has(e.name)).map(node).join("; ");
 }

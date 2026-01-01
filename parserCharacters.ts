@@ -219,8 +219,8 @@ export function stringifyDataset(dataset: AST): string {
   const node = (c: CharacterNode) => n([c.name, ...c.fragments.map(f)].join(" "));
 
   const mem = new Set<string>();
-  const walk = (c: CharacterNode) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(n(m.name)), walk(m))));
+  const walk = (c: CharacterNode) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(m.name), walk(m))));
   dataset.entries.forEach(walk);
 
-  return n(dataset.entries.filter(e => !mem.has(n(e.name))).map(node).join("; "));
+  return dataset.entries.filter(e => !mem.has(e.name)).map(node).join("; ");
 }
