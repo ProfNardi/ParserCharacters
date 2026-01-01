@@ -215,8 +215,12 @@ export function parseDataset(input: string): AST {
 
 export function stringifyDataset(dataset: AST): string {
   const n = (s: string) => s.trim().replace(/\s+/g, " ");
-  const f = (x: Fragment) => (x.type === "info" ? `(${n(x.raw)})` : n(x.raw));
-  const node = (c: CharacterNode) => n([c.name, ...c.fragments.map(f)].filter(Boolean).join(" "));
-  const out = dataset.entries.map(node).filter(Boolean).join("; ");
-  return out ? out + ";" : "";
+  const f = (x: Fragment) => x.type === "info" ? `(${n(x.raw)})` : n(x.raw);
+  const node = (c: CharacterNode) => n([c.name, ...c.fragments.map(f)].join(" "));
+
+  const mem = new Set<string>();
+  const walk = (c: CharacterNode) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(n(m.name)), walk(m))));
+  dataset.entries.forEach(walk);
+
+  return n(dataset.entries.filter(e => !mem.has(n(e.name))).map(node).join("; "));
 }

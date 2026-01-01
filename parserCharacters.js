@@ -1,8 +1,8 @@
 /* =========================
- * TYPES — IMMUTATI
+ * TYPES
  * ========================= */
 /* =========================
- * PARSER — DEFINITIVO
+ * PARSER
  * ========================= */
 export function parseDataset(input) {
     const entries = [];
@@ -131,11 +131,11 @@ export function parseDataset(input) {
                 }
                 const bracketRaw = raw.slice(i, k).trim();
                 const parts = splitTL(inner, ";", false).filter((p) => p.length);
-                // Regola: se c'è almeno un ';' top-level, segnalo sempre AMBIGUOUS.
+                // Rule: if there is at least one top-level ';', always flag AMBIGUOUS.
                 if (hasTopLevelSemicolon(inner)) {
                     issues.push({ code: "AMBIGUOUS_SQUARE_LIST", raw: bracketRaw });
                 }
-                // FIX: se ci sono più parti (split top-level su ';') => è SEMPRE group.
+                // If there are multiple parts (top-level split on ';'), it must be a group.
                 const isGroup = parts.length > 1;
                 if (isGroup) {
                     seenGroup = true;
@@ -150,7 +150,7 @@ export function parseDataset(input) {
                     fragments.push({ type: "group", raw: bracketRaw, members });
                 }
                 else {
-                    // Ordine invalido SOLO se un alias arriva DOPO un group nello stesso nodo.
+                    // Invalid order occurs only if an alias follows a group within the same node.
                     if (seenGroup)
                         badOrder = true;
                     fragments.push({ type: "alias", raw: bracketRaw });
@@ -176,8 +176,10 @@ export function parseDataset(input) {
 }
 export function stringifyDataset(dataset) {
     const n = (s) => s.trim().replace(/\s+/g, " ");
-    const f = (x) => (x.type === "info" ? `(${n(x.raw)})` : n(x.raw));
-    const node = (c) => n([c.name, ...c.fragments.map(f)].filter(Boolean).join(" "));
-    const out = dataset.entries.map(node).filter(Boolean).join("; ");
-    return out ? out + ";" : "";
+    const f = (x) => x.type === "info" ? `(${n(x.raw)})` : n(x.raw);
+    const node = (c) => n([c.name, ...c.fragments.map(f)].join(" "));
+    const mem = new Set();
+    const walk = (c) => c.fragments.forEach(fr => fr.type === "group" && fr.members.forEach(m => (mem.add(n(m.name)), walk(m))));
+    dataset.entries.forEach(walk);
+    return n(dataset.entries.filter(e => !mem.has(n(e.name))).map(node).join("; "));
 }
