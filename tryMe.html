@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parser Characters – Test</title>
+
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; overflow-x: hidden; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #eef2ff;
+      color: #0f172a;
+    }
+    header {
+      background: #111827;
+      color: #e0f2fe;
+      padding: 1.25rem;
+      text-align: center;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    main {
+      width: 100%;
+      padding: 1.5rem;
+      display: grid;
+      gap: 1.25rem;
+    }
+    .panel {
+      background: #ffffff;
+      border-radius: 1rem;
+      padding: 1.25rem 1.4rem;
+      box-shadow: 0 25px 45px rgba(15, 23, 42, 0.15);
+      min-width: 0;
+    }
+
+    /* FIX: prevent grid overflow */
+    .top-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+      width: 100%;
+      margin-bottom: 0.75rem;
+      min-width: 0;
+    }
+    .top-row section { min-width: 0; display: flex; flex-direction: column; }
+
+    .panel-header, .section-header { margin-bottom: 0.75rem; }
+    h1 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+    p { margin: 0; color: #475569; font-size: 0.95rem; }
+
+    textarea {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 260px;
+      border-radius: 0.8rem;
+      border: 1px solid #cbd5f5;
+      padding: 1rem;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 0.95rem;
+      background: #f8fafc;
+      color: #0f172a;
+      resize: vertical;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      overflow-x: hidden;
+      flex: 1;
+    }
+
+    pre {
+      margin: 0;
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 0.8rem;
+      border: 1px solid #cbd5f5;
+      padding: 1rem;
+      min-height: 260px;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      flex: 1;
+    }
+
+    .ast-panel pre {
+      background: #18181a;
+      color: #b6fcd5;
+      border: 1px solid #22232a;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .controls {
+      margin-top: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 0.65rem;
+      padding: 0.65rem 1.2rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      background: #2563eb;
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+    button:hover { transform: translateY(-1px); background: #1e40af; }
+
+    .status {
+      font-size: 0.9rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .status[data-state="ok"] {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+    .status[data-state="warn"] {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    code {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      background: #e0e7ff;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.35rem;
+    }
+
+    #compare-result {
+      margin-top: 0.7rem;
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .table-wrapper { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      table-layout: fixed;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.5rem;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+    }
+    th {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.75rem;
+      color: #475569;
+    }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+
+    .issues {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .issues li {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0.65rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.92rem;
+    }
+    .issues li:last-child { border-bottom: none; }
+    .issues li strong {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .issue-meta { color: #475569; font-size: 0.78rem; }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    @media (max-width: 980px) {
+      .top-row { grid-template-columns: 1fr; }
+      pre, textarea { min-height: 220px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>Parser Characters – Test</header>
+
+  <main>
+    <div class="top-row">
+      <section class="panel input-panel">
+        <div class="panel-header">
+          <h1>Input Characters String</h1>
+          <p>Paste a GCD-like dataset. Parsing runs as you type.</p>
+        </div>
+        <label class="visually-hidden" for="dataset-input">Characters string</label>
+        <textarea id="dataset-input" spellcheck="false" wrap="soft" aria-label="Characters string"></textarea>
+
+        <div class="controls">
+          <button id="clear-button" type="button" style="background:#f59e42;color:#222;">Clear</button>
+
+          <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.92rem;color:#475569;">
+            <input type="checkbox" id="show-all-nodes" checked />
+            Show nested members
+          </label>
+
+          <span class="status" id="statusMessage" role="status" aria-live="polite" data-state="ok">Ready.</span>
+        </div>
+      </section>
+
+      <section class="panel canonical-panel">
+        <div class="section-header">
+          <h1>Normalized String</h1>
+          <p>Dataset rewritten by <code>stringifyDataset</code>.</p>
+        </div>
+        <pre id="canonical-output" aria-live="polite">Waiting for analysis...</pre>
+        <div id="compare-result"></div>
+      </section>
+
+      <section class="panel ast-panel">
+        <div class="section-header">
+          <h1>AST</h1>
+          <p>Tree structure produced by <code>parseDataset</code>.</p>
+        </div>
+        <pre id="ast-output" aria-live="polite">Waiting for analysis...</pre>
+      </section>
+    </div>
+
+    <section class="panel issues-panel">
+      <div class="section-header">
+        <h1>Issues</h1>
+        <p>Detailed log of warnings detected during parsing.</p>
+      </div>
+      <ul class="issues" id="issues-list"></ul>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="section-header">
+        <h1>Characters Table</h1>
+        <p>Groups and nodes rendered from the AST (no string splitting).</p>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" style="width:48px;">#</th>
+              <th scope="col" style="width:170px;">Character</th>
+              <th scope="col" style="width:170px;">Group</th>
+              <th scope="col" style="width:170px;">Aliases</th>
+              <th scope="col" style="width:170px;">Infos</th>
+              <th scope="col">Members</th>
+            </tr>
+          </thead>
+          <tbody id="nodes-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { parseDataset, stringifyDataset } from "./parserCharacters.js";
+
+    const SAMPLE =
+      "Jimmy Olsen (origin, death) (w/roles); " +
+      "Justice League [Superman [Clark Kent; Kal-El]; Batman [Bruce Wayne]; Wonder Woman [Diana of Themyscira]; Aquaman [Arthur Curry]; The Flash [Barry Allen]; Green Lantern [John Stewart]]; " +
+      "Batman (photo of Adam West); Batman [Bruce Wayne] (of Earth-2); " +
+      "Justice League of America [Green Lantern [Hal Jordan] (origin); Superman [Clark Kent] (Earth-1)]; " +
+      "Justice Society of America [Superman [Clark Kent] (Earth-2); Flash [Jay Garrick] (cameo)];";
+
+    const textarea = document.getElementById("dataset-input");
+    const statusMessage = document.getElementById("statusMessage");
+    const clearButton = document.getElementById("clear-button");
+    const nodesBody = document.getElementById("nodes-body");
+    const issuesList = document.getElementById("issues-list");
+    const astOutput = document.getElementById("ast-output");
+    const canonicalOutput = document.getElementById("canonical-output");
+    const compareResult = document.getElementById("compare-result");
+    const showAllNodes = document.getElementById("show-all-nodes");
+
+    const ITERATIONS = 5;
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function setStatus(state, text) {
+      statusMessage.dataset.state = state;
+      statusMessage.textContent = text;
+    }
+
+    function setCompare(ok, text) {
+      compareResult.textContent = text;
+      compareResult.style.color = ok ? "#166534" : "#b91c1c";
+    }
+
+    function collectRoots(dataset) {
+      const children = new Set();
+      for (const n of dataset.entries) {
+        for (const f of n.fragments) {
+          if (f.kind !== "group") continue;
+          for (const m of f.members) {
+            if (m.kind === "node") children.add(m);
+          }
+        }
+      }
+      return dataset.entries.filter((n) => !children.has(n));
+    }
+
+    function buildParentMap(dataset) {
+      const parent = new Map(); // childNode -> parent group name
+      for (const n of dataset.entries) {
+        for (const f of n.fragments) {
+          if (f.kind !== "group") continue;
+          for (const m of f.members) {
+            if (m.kind === "node" && !parent.has(m)) parent.set(m, n.name);
+          }
+        }
+      }
+      return parent;
+    }
+
+    function summarizeNodeFragments(node) {
+      const infos = [];
+      const aliases = [];
+      const groups = [];
+      for (const f of node.fragments) {
+        if (f.kind === "info") infos.push(f.raw);
+        else if (f.kind === "alias") aliases.push(f.raw);
+        else if (f.kind === "group") groups.push(f);
+      }
+      return { infos, aliases, groups };
+    }
+
+    function memberToText(m) {
+      if (m.kind === "raw") return m.raw;
+
+      const parts = [];
+      for (const f of m.fragments) {
+        if (f.kind === "alias") parts.push(`[${f.raw}]`);
+        else if (f.kind === "info") parts.push(`(${f.raw})`);
+        else if (f.kind === "group") parts.push("[...]");
+      }
+
+      return parts.length ? `${m.name} ${parts.join(" ")}` : m.name;
+    }
+
+    function renderIssues(issues) {
+      issuesList.innerHTML = "";
+      if (!issues.length) {
+        issuesList.innerHTML = `<li><strong>OK</strong><div class="issue-meta">No issues detected.</div></li>`;
+        return;
+      }
+
+      for (const it of issues) {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${escapeHtml(it.code)}</strong>
+          <div>${escapeHtml(it.message || "")}</div>
+          <div class="issue-meta">path: <code>${escapeHtml(it.path || "")}</code></div>
+          <div class="issue-meta">raw: <code>${escapeHtml(it.raw || "")}</code></div>
+        `;
+        issuesList.appendChild(li);
+      }
+    }
+
+    function renderTable(dataset) {
+      nodesBody.innerHTML = "";
+
+      const parent = buildParentMap(dataset);
+      const roots = collectRoots(dataset);
+      const rows = showAllNodes.checked ? dataset.entries : roots;
+
+      let rowId = 0;
+
+      for (const node of rows) {
+        const { infos, aliases, groups } = summarizeNodeFragments(node);
+
+        if (groups.length) {
+          for (const g of groups) {
+            const members = g.members.map(memberToText).map(escapeHtml).join("; ");
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${rowId++}</td>
+              <td></td>
+              <td>${escapeHtml(node.name)}</td>
+              <td>${aliases.map(escapeHtml).join("<br>")}</td>
+              <td>${infos.map(escapeHtml).join("<br>")}</td>
+              <td>${members}</td>
+            `;
+            nodesBody.appendChild(tr);
+          }
+        } else {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${rowId++}</td>
+            <td>${escapeHtml(node.name)}</td>
+            <td>${escapeHtml(parent.get(node) || "")}</td>
+            <td>${aliases.map(escapeHtml).join("<br>")}</td>
+            <td>${infos.map(escapeHtml).join("<br>")}</td>
+            <td></td>
+          `;
+          nodesBody.appendChild(tr);
+        }
+      }
+    }
+
+    function iterateCanonical(input, n) {
+      let s = input;
+      for (let k = 0; k < n; k++) s = stringifyDataset(parseDataset(s));
+      return s;
+    }
+
+    function analyzeNow(input) {
+      const trimmed = (input ?? "").trim();
+
+      if (!trimmed) {
+        canonicalOutput.textContent = "Waiting for analysis...";
+        astOutput.textContent = "Waiting for analysis...";
+        nodesBody.innerHTML = "";
+        issuesList.innerHTML = "";
+        setStatus("ok", "Ready.");
+        setCompare(true, "");
+        return;
+      }
+
+      try {
+        const dataset = parseDataset(input);
+
+        if (!dataset || !Array.isArray(dataset.entries) || !Array.isArray(dataset.issuesDetailed)) {
+          throw new Error("Unexpected dataset shape. Expected { entries: [], issuesDetailed: [] }");
+        }
+
+        const canonical = stringifyDataset(dataset);
+
+        canonicalOutput.textContent = canonical;
+        astOutput.textContent = JSON.stringify(dataset, null, 2);
+
+        const hasIssues = dataset.issuesDetailed.length > 0;
+        setStatus(hasIssues ? "warn" : "ok", hasIssues ? "Issues detected." : "No issues detected.");
+
+        renderIssues(dataset.issuesDetailed);
+        renderTable(dataset);
+
+        const canonIter = iterateCanonical(input, ITERATIONS);
+        setCompare(canonIter === canonical, canonIter === canonical ? `Idempotent (${ITERATIONS}x) ✅` : `Not idempotent (${ITERATIONS}x) ❌`);
+      } catch (err) {
+        canonicalOutput.textContent = "Parsing failed.";
+        astOutput.textContent = String(err?.stack || err);
+        nodesBody.innerHTML = "";
+        issuesList.innerHTML = "";
+        setStatus("warn", "Runtime error.");
+        setCompare(false, "Parser threw an exception.");
+      }
+    }
+
+    function debounce(fn, delayMs) {
+      let t = null;
+      return (...args) => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => fn(...args), delayMs);
+      };
+    }
+
+    const analyzeDebounced = debounce(() => analyzeNow(textarea.value), 120);
+
+    textarea.addEventListener("input", analyzeDebounced);
+    showAllNodes.addEventListener("change", () => analyzeNow(textarea.value));
+
+    clearButton.addEventListener("click", () => {
+      textarea.value = "";
+      analyzeNow("");
+      textarea.focus();
+    });
+
+    textarea.value = SAMPLE;
+    showAllNodes.checked = true;
+    analyzeNow(textarea.value);
+  </script>
+</body>
+</html>

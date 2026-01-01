@@ -1,0 +1,24 @@
+{
+  "name": "parsecharacters",
+  "version": "1.0.0",
+  "description": "**Languages:** [English](README.md) | [Italiano](README.it.md)\r # parserCharacters\r **Conservative structural parser for character lists**",
+  "main": "parserCharacters.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ProfNardi/ParserCharacters.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ProfNardi/ParserCharacters/issues"
+  },
+  "homepage": "https://github.com/ProfNardi/ParserCharacters#readme",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "type": "module"
+}
